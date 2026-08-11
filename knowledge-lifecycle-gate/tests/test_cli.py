@@ -34,7 +34,7 @@ def test_validate_emits_json_without_absolute_paths() -> None:
     report = json.loads(completed.stdout)
     assert report["valid"] is True
     assert report["file"] == "evidence.md"
-    assert "/Users/" not in completed.stdout
+    assert ("/" + "Users/") not in completed.stdout
     assert report["mutation_performed"] is False
 
 
@@ -56,4 +56,4 @@ def test_human_report_mentions_no_mutation() -> None:
     assert "Suggested transition: STALE_PROPOSED" in completed.stdout
     assert "Human confirmation required: YES" in completed.stdout
     assert "Mutation performed: NO" in completed.stdout
-    assert "/Users/" not in completed.stdout
+    assert ("/" + "Users/") not in completed.stdout

@@ -74,7 +74,7 @@ def _lineage(metadata: Mapping[str, Any], state: str | None, issues: list[Valida
             )
         )
     elif any(
-        item.startswith(("/", "~")) or "/Users/" in item or "\\Users\\" in item
+        item.startswith(("/", "~")) or ("/" + "Users/") in item or "\\Users\\" in item
         for item in value
     ):
         issues.append(

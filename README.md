@@ -25,6 +25,8 @@ output are evidence and recommendations only: they do not grant authority,
 select an executor, or trigger execution. See
 [the relationship statement](docs/mothership-relationship.md).
 
+See [local verification](docs/verification.md) for the offline release checks.
+
 ## Quick checks
 
 ```bash
