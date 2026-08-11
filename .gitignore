@@ -7,6 +7,8 @@ dist/
 *.egg-info/
 .env
 .env.*
+.wheelhouse/
+.verify-venv/
 *.secret
 *.secrets
 *.key

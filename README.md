@@ -43,6 +43,11 @@ The runtime components use only the Python standard library. A fresh venv may
 need pytest supplied by a reviewed local wheelhouse. No network call is needed
 for runtime behavior or the routing test.
 
+The KLG test wheelhouse is a verification-only input. Its manifest records
+every wheel filename and SHA-256, and local release checks reject an absent or
+mismatched wheelhouse before installing anything. The wheel binaries are not
+part of the repository or either runtime dependency set.
+
 ## Boundaries
 
 Machine code may inspect, validate, and recommend. Human authority remains
