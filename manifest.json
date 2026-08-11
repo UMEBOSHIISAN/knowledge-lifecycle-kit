@@ -1,0 +1,12 @@
+{
+  "schema_version": "knowledge-gate-oss-candidate.v1",
+  "package_id": "knowledge-lifecycle-gate-oss-candidate-0.1.0",
+  "components": [
+    "knowledge-lifecycle-gate",
+    "llm-routing"
+  ],
+  "license": "MIT",
+  "network_default": "none",
+  "model_execution": "not included",
+  "publication": "candidate-only"
+}

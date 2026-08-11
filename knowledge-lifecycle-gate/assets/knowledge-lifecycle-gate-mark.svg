@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Knowledge Lifecycle Gate mark</title>
+  <desc id="desc">An open gate with a branching advisory route.</desc>
+  <rect width="256" height="256" rx="32" fill="#f8fafc"/>
+  <g fill="none" stroke="#0b2a52" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M34 48v160M34 48l42 30v100l-42 30M222 48v160M222 48l-42 30v100l42 30"/>
+    <path stroke="#119aa3" d="M128 132 86 101M128 132l42-31M128 132v62"/>
+  </g>
+  <circle cx="86" cy="101" r="14" fill="#119aa3"/>
+  <circle cx="170" cy="101" r="14" fill="#119aa3"/>
+  <circle cx="128" cy="132" r="15" fill="#119aa3"/>
+  <circle cx="128" cy="64" r="16" fill="none" stroke="#e69a16" stroke-width="10"/>
+  <circle cx="128" cy="194" r="16" fill="none" stroke="#0b2a52" stroke-width="10"/>
+</svg>

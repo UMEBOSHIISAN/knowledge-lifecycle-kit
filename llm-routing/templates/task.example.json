@@ -1,0 +1,6 @@
+{
+  "task_id": "example-task",
+  "required_capabilities": ["audit", "python"],
+  "max_cost_rank": 2,
+  "risk_level": "low"
+}

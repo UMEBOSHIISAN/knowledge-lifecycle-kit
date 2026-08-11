@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/task.v1.schema.json",
+  "title": "Advisory routing task",
+  "type": "object",
+  "required": ["task_id", "required_capabilities", "max_cost_rank", "risk_level"],
+  "properties": {
+    "task_id": {"type": "string", "minLength": 1},
+    "required_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "max_cost_rank": {"type": "integer", "minimum": 0},
+    "risk_level": {"enum": ["low", "medium", "high", "unknown"]}
+  },
+  "additionalProperties": false
+}

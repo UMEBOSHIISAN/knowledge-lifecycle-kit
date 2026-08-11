@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "knowledge_asset.v0.1.json",
+  "title": "Knowledge Lifecycle Gate asset profile v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["asset_type", "state", "lineage"],
+  "properties": {
+    "asset_type": {
+      "type": "string",
+      "enum": ["CONCEPT", "EVIDENCE", "TRIAL", "PROCEDURE", "QUESTION"]
+    },
+    "state": {
+      "type": "string",
+      "enum": ["NEW", "CANDIDATE", "CONFIRMED", "STALE", "RETIRED"]
+    },
+    "lineage": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "last_verified": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "next_review": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "valid_until": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "transition_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target_state"],
+      "properties": {
+        "target_state": {
+          "type": "string",
+          "enum": ["NEW", "CANDIDATE", "CONFIRMED", "STALE", "RETIRED"]
+        }
+      }
+    }
+  }
+}

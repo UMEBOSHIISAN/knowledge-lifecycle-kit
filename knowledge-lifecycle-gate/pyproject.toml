@@ -1,0 +1,32 @@
+[build-system]
+requires = []
+build-backend = "build_backend"
+backend-path = ["."]
+
+[project]
+name = "knowledge-lifecycle-gate"
+version = "0.1.0"
+description = "Read-only knowledge-asset lifecycle inspection and transition proposals"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "KLG contributors"}]
+keywords = ["knowledge-management", "lifecycle", "metadata", "governance", "read-only"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Libraries",
+]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[project.scripts]
+klg = "knowledge_lifecycle_gate.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

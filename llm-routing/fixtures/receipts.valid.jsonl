@@ -1,0 +1,2 @@
+{"event_type":"ExecutionReceipt","outcome":"done","trace_id":"example-trace-1","worker_alias":"synthetic-auditor-a"}
+{"event_type":"VerificationReceipt","trace_id":"example-trace-1","verification_level":"cross-verified","verification_status":"pass"}

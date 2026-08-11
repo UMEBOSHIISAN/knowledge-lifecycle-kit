@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/worker_registry.v1.schema.json",
+  "title": "Synthetic/local worker registry",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["alias", "status", "capabilities", "cost_rank", "priority"],
+    "properties": {
+      "alias": {"type": "string", "minLength": 1},
+      "status": {"enum": ["available", "unavailable", "retired"]},
+      "capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+      "cost_rank": {"type": "integer", "minimum": 0},
+      "priority": {"type": "integer", "minimum": 0}
+    },
+    "additionalProperties": false
+  }
+}
