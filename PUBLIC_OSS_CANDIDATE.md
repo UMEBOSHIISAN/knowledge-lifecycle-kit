@@ -11,8 +11,6 @@ full transfer bundle.
 
 - Standalone KLG implementation, schema, synthetic examples, tests, OSS docs,
   and logo assets.
-- Deterministic advisory routing and scorecard contracts with synthetic
-  fixtures and a no-execution test.
 - MIT license and a single public-surface manifest.
 
 ## Excluded
@@ -27,7 +25,7 @@ full transfer bundle.
 ## Verification gates
 
 - KLG tests: run from `knowledge-lifecycle-gate/`.
-- Router tests: `python3 -m unittest -v tests/test_routing.py`.
+- Boundary & Layout tests: `python3 -m unittest discover -s tests`.
 - JSON schema/fixture parse, SVG parse, source-path scan, secret scan, archive
   traversal scan, and no-live execution scan must all pass before publication.
 - A human must still decide whether and where to publish. This candidate has
