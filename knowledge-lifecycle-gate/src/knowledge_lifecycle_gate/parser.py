@@ -172,6 +172,12 @@ def _parse_frontmatter(lines: list[str]) -> dict[str, Any]:
     return metadata
 
 
+def parse_markdown_text(text: str) -> tuple[dict[str, Any], str]:
+    """Parse frontmatter and body from Markdown text string."""
+    frontmatter, body = _frontmatter_and_body(text)
+    return _parse_frontmatter(frontmatter), body
+
+
 def parse_markdown(path: Path) -> ParsedMarkdown:
     """Parse one Markdown note without writing to it or its parent directory."""
 
@@ -181,10 +187,10 @@ def parse_markdown(path: Path) -> ParsedMarkdown:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise FrontmatterError("Markdown must be valid UTF-8") from exc
-    frontmatter, body = _frontmatter_and_body(text)
+    metadata, body = parse_markdown_text(text)
     return ParsedMarkdown(
         path=path,
-        metadata=_parse_frontmatter(frontmatter),
+        metadata=metadata,
         body=body,
         raw=raw,
     )
