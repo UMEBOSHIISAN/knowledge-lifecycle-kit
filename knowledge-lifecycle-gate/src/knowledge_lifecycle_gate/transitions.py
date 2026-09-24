@@ -86,3 +86,16 @@ def propose_from_result(result: Any) -> TransitionDecision | None:
     ):
         return propose_transition("CONFIRMED", "STALE")
     return None
+
+
+def validate_transition_path(path: list[str]) -> tuple[bool, str, int]:
+    if not isinstance(path, (list, tuple)) or len(path) < 2:
+        return (False, "Transition path must contain at least 2 states", 0)
+    for i in range(len(path) - 1):
+        current = path[i]
+        next_state = path[i + 1]
+        decision = propose_transition(current, next_state)
+        if not decision.allowed:
+            return (False, f"Step {i} ({current} -> {next_state}) rejected: {decision.reason}", i)
+    return (True, f"Valid transition path across {len(path) - 1} steps", len(path) - 1)
+

@@ -3,7 +3,12 @@
 __version__ = "0.1.0"
 
 from .parser import FrontmatterError, ParsedMarkdown, parse_markdown
-from .transitions import TransitionDecision, propose_from_result, propose_transition
+from .transitions import (
+    TransitionDecision,
+    propose_from_result,
+    propose_transition,
+    validate_transition_path,
+)
 from .trust_writer import (
     KnowledgeTrustError,
     KnowledgeTrustResult,
@@ -31,4 +36,5 @@ __all__ = [
     "propose_transition",
     "validate_file",
     "validate_metadata",
+    "validate_transition_path",
 ]
