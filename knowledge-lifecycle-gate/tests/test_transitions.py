@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from knowledge_lifecycle_gate.transitions import (
+    find_transition_path,
     propose_transition,
     validate_transition_path,
 )
@@ -61,4 +62,33 @@ def test_validate_transition_path_unknown_state():
     result = validate_transition_path(["NEW", "BOGUS"])
     assert result[0] is False
     assert result[2] == 0
+
+
+def test_find_transition_path_new_to_confirmed():
+    assert find_transition_path("NEW", "CONFIRMED") == ["NEW", "CANDIDATE", "CONFIRMED"]
+
+
+def test_find_transition_path_new_to_retired():
+    result = find_transition_path("NEW", "RETIRED")
+    assert result in (
+        ["NEW", "CANDIDATE", "CONFIRMED", "RETIRED"],
+        ["NEW", "CANDIDATE", "CONFIRMED", "STALE", "RETIRED"],
+    )
+
+
+def test_find_transition_path_confirmed_to_new_is_none():
+    assert find_transition_path("CONFIRMED", "NEW") is None
+
+
+def test_find_transition_path_retired_to_candidate_is_none():
+    assert find_transition_path("RETIRED", "CANDIDATE") is None
+
+
+def test_find_transition_path_same_state():
+    assert find_transition_path("CONFIRMED", "CONFIRMED") == ["CONFIRMED"]
+
+
+def test_find_transition_path_unknown_state_is_none():
+    assert find_transition_path("UNKNOWN", "CONFIRMED") is None
+    assert find_transition_path("NEW", "UNKNOWN") is None
 

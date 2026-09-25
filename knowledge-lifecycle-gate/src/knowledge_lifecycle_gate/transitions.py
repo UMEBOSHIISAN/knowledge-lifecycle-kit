@@ -99,3 +99,31 @@ def validate_transition_path(path: list[str]) -> tuple[bool, str, int]:
             return (False, f"Step {i} ({current} -> {next_state}) rejected: {decision.reason}", i)
     return (True, f"Valid transition path across {len(path) - 1} steps", len(path) - 1)
 
+
+def find_transition_path(start_state: str, target_state: str) -> list[str] | None:
+    """Find the shortest valid transition path from start_state to target_state.
+
+    Uses BFS over the allowed transition adjacency graph.
+    """
+    if start_state not in PUBLIC_STATES or target_state not in PUBLIC_STATES:
+        return None
+
+    if start_state == target_state:
+        return [start_state]
+
+    from collections import deque
+    queue: deque[tuple[str, list[str]]] = deque()
+    queue.append((start_state, [start_state]))
+    visited: set[str] = {start_state}
+
+    while queue:
+        current, path = queue.popleft()
+        for neighbor in _ALLOWED[current]:
+            if neighbor == target_state:
+                return path + [neighbor]
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append((neighbor, path + [neighbor]))
+
+    return None
+

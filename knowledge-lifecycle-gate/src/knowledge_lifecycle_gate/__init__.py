@@ -5,6 +5,7 @@ __version__ = "0.1.0"
 from .parser import FrontmatterError, ParsedMarkdown, parse_markdown
 from .transitions import (
     TransitionDecision,
+    find_transition_path,
     propose_from_result,
     propose_transition,
     validate_transition_path,
@@ -31,6 +32,7 @@ __all__ = [
     "TransitionDecision",
     "ValidationIssue",
     "ValidationResult",
+    "find_transition_path",
     "parse_markdown",
     "propose_from_result",
     "propose_transition",
