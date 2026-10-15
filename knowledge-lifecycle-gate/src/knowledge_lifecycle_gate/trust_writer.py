@@ -21,7 +21,7 @@ import re
 import tempfile
 from typing import Any, Mapping
 
-from .parser import parse_markdown, parse_markdown_text
+from .parser import FrontmatterError, parse_markdown_text
 from .transitions import propose_transition
 from .validator import validate_metadata
 
@@ -66,7 +66,12 @@ def compute_sha256(content: str | bytes) -> str:
 
 
 class KnowledgeTrustWriter:
-    """Unified Canonical Writer for Knowledge Trust."""
+    """Local single-writer API with compensation for synchronous I/O failures.
+
+    This does not provide multiwriter, hostile path-race or process/power-loss
+    atomicity across files. A failed compensation is reported, never hidden by
+    a successful result; callers must resolve that store before further use.
+    """
 
     def __init__(self, base_dir: Path | str) -> None:
         self.base_dir = Path(base_dir).resolve()
@@ -78,338 +83,325 @@ class KnowledgeTrustWriter:
         self.redact_path = self.redact_dir / "redact.jsonl"
         self._init_dirs()
 
+    def _confined(self, path: Path, root: Path) -> Path:
+        """Reject existing symlinks and use component-wise containment."""
+        try:
+            path.relative_to(root)
+            current = self.base_dir
+            for part in path.relative_to(self.base_dir).parts:
+                current = current / part
+                if current.is_symlink():
+                    raise StorageBoundaryError(f"Symlinked storage path: {current}")
+            path.resolve().relative_to(root.resolve())
+        except (ValueError, OSError, RuntimeError) as exc:
+            raise StorageBoundaryError(f"Storage path escapes its root: {path}") from exc
+        return path
+
+    def _check_storage(self) -> None:
+        for directory in (self.store_dir, self.versions_dir, self.audit_dir, self.redact_dir):
+            self._confined(directory, self.base_dir)
+            if directory.exists() and not directory.is_dir():
+                raise StorageBoundaryError(f"Storage root is not a directory: {directory}")
+        for log in (self.audit_path, self.redact_path):
+            self._confined(log, self.base_dir)
+            if log.exists() and not log.is_file():
+                raise StorageBoundaryError(f"Storage log is not a regular file: {log}")
+
     def _init_dirs(self) -> None:
-        self.store_dir.mkdir(parents=True, exist_ok=True)
-        self.versions_dir.mkdir(parents=True, exist_ok=True)
-        self.audit_dir.mkdir(parents=True, exist_ok=True)
-        self.redact_dir.mkdir(parents=True, exist_ok=True)
-        if not self.audit_path.exists():
-            self.audit_path.touch()
-        if not self.redact_path.exists():
-            self.redact_path.touch()
+        self._check_storage()
+        for directory in (self.store_dir, self.versions_dir, self.audit_dir, self.redact_dir):
+            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        for log in (self.audit_path, self.redact_path):
+            if not log.exists():
+                log.touch(mode=0o600, exist_ok=False)
+
+    @staticmethod
+    def _normalize_target(target_path: str) -> str:
+        if not isinstance(target_path, str):
+            raise StorageBoundaryError("target_path must be relative text")
+        norm = target_path.replace("\\", "/")
+        if (not norm or "\x00" in norm or norm.startswith("/")
+                or any(part in ("", ".", "..") for part in norm.split("/"))
+                or not any(norm.startswith(prefix) for prefix in _ALLOWED_PREFIXES)):
+            raise StorageBoundaryError(f"Illegal canonical target: {target_path!r}")
+        return norm
 
     def _validate_target_path(self, target_path: str) -> Path:
-        if not target_path or target_path.endswith("/"):
-            raise StorageBoundaryError(f"target_path must name a file, not directory: '{target_path}'")
-        if ".." in target_path or target_path.startswith("/"):
-            raise StorageBoundaryError(f"target_path contains illegal traversal or root: '{target_path}'")
-        norm = target_path.replace("\\", "/")
-        if not any(norm.startswith(prefix) for prefix in _ALLOWED_PREFIXES):
-            raise StorageBoundaryError(
-                f"target_path '{target_path}' is not in allowed prefixes {_ALLOWED_PREFIXES}"
-            )
-        resolved = (self.store_dir / norm).resolve()
-        if not str(resolved).startswith(str(self.store_dir)):
-            raise StorageBoundaryError(f"target_path escapes store root: '{target_path}'")
-        return resolved
+        self._check_storage()
+        return self._confined(self.store_dir / self._normalize_target(target_path), self.store_dir)
+
+    def _version_dir(self, target_path: str) -> Path:
+        path = self._confined(self.versions_dir / target_path, self.versions_dir)
+        if path.exists() and not path.is_dir():
+            raise StorageBoundaryError(f"Version path is not a directory: {path}")
+        return path
+
+    def _version_file(self, target_path: str, filename: str) -> Path:
+        if (not isinstance(filename, str) or filename in ("", ".", "..")
+                or "/" in filename or "\\" in filename or "\x00" in filename):
+            raise StorageBoundaryError("version_filename must name one direct target generation")
+        path = self._confined(self._version_dir(target_path) / filename, self.versions_dir)
+        if not path.is_file():
+            raise StorageBoundaryError(f"Target version does not exist: {filename!r}")
+        return path
 
     def _validate_lifecycle(
-        self,
-        content: str,
-        explicit_metadata: Mapping[str, Any] | None = None,
+        self, content: str, explicit_metadata: Mapping[str, Any] | None = None,
         as_of: datetime.date | None = None,
     ) -> tuple[dict[str, Any], str]:
-        """Enforce lifecycle gate promotion rules (CONFIRMED knowledge only)."""
-        metadata: dict[str, Any] = {}
-        # Parse markdown frontmatter if present
         try:
-            parsed_meta, _ = parse_markdown_text(content)
-            metadata.update(parsed_meta)
-        except Exception:
-            pass
+            metadata, _ = parse_markdown_text(content)
+        except FrontmatterError as exc:
+            raise PromotionGateError(f"Invalid canonical Markdown: {exc}") from exc
+        if explicit_metadata is not None:
+            if not isinstance(explicit_metadata, Mapping) or any(
+                key not in metadata or metadata[key] != value
+                for key, value in explicit_metadata.items()
+            ):
+                raise PromotionGateError("Explicit metadata must agree with the exact Markdown bytes")
+        result = validate_metadata(metadata, as_of=as_of)
+        if not result.valid or result.state not in ("CONFIRMED", "STALE", "RETIRED"):
+            errors = "; ".join(issue.message for issue in result.issues if issue.severity == "error")
+            raise PromotionGateError(f"Ineligible canonical lifecycle state: {errors or result.state}")
+        return metadata, str(result.state)
 
-        if explicit_metadata:
-            metadata.update(explicit_metadata)
+    def _audit_records(self) -> list[dict[str, Any]]:
+        self._confined(self.audit_path, self.audit_dir)
+        try:
+            raw = self.audit_path.read_bytes()
+            if raw and not raw.endswith(b"\n"):
+                raise ValueError("incomplete JSONL record")
+            records = [json.loads(line) for line in raw.decode("utf-8").splitlines() if line.strip()]
+            for record in records:
+                if (not isinstance(record, dict) or not isinstance(record.get("target"), str)
+                        or record.get("action") not in ("write", "rollback", "redact")
+                        or not isinstance(record.get("after_hash"), str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}", record["after_hash"]) is None):
+                    raise ValueError("invalid audit record")
+            return records
+        except (OSError, ValueError, UnicodeError) as exc:
+            raise StorageDurabilityError(f"Cannot use incomplete audit evidence: {exc}") from exc
 
-        state = str(metadata.get("state", "UNKNOWN")).upper()
-        
-        # Explicit gate: UNKNOWN and ASSUMPTION cannot be committed as canonical knowledge
-        if state in ("UNKNOWN", "ASSUMPTION"):
-            raise PromotionGateError(
-                f"Content with lifecycle state '{state}' cannot be written to canonical knowledge store."
-            )
+    def _guard_existing(self, target: str, store: Path, state: str,
+                        records: list[dict[str, Any]], as_of=None) -> bytes | None:
+        history = self._version_dir(target)
+        if not store.exists():
+            if (history.exists() and any(history.iterdir())) or any(r["target"] == target for r in records):
+                raise StorageDurabilityError("Canonical file missing while target history remains")
+            return None
+        if not store.is_file():
+            raise StorageBoundaryError("Canonical target must be a regular file")
+        raw = store.read_bytes()
+        self._verify_no_change(target, compute_sha256(raw), records)
+        try:
+            _, previous_state = self._validate_lifecycle(raw.decode("utf-8"), as_of=as_of)
+        except UnicodeError as exc:
+            raise PromotionGateError("Existing canonical Markdown is not UTF-8") from exc
+        if previous_state != state:
+            decision = propose_transition(previous_state, state)
+            if not decision.allowed:
+                raise PromotionGateError(decision.reason)
+        return raw
 
-        # Run full knowledge-lifecycle-gate validation
-        val_res = validate_metadata(metadata, as_of=as_of)
-        if not val_res.valid:
-            error_msgs = [f"[{issue.code}] {issue.message}" for issue in val_res.issues if issue.severity == "error"]
-            if error_msgs:
-                raise PromotionGateError(
-                    f"Lifecycle validation failed: {'; '.join(error_msgs)}"
-                )
+    def _verify_no_change(self, target: str, digest: str, records: list[dict[str, Any]]) -> None:
+        matching = [row for row in records if row["target"] == target]
+        if not matching or matching[-1]["after_hash"] != digest:
+            raise StorageDurabilityError("Identical canonical bytes have no matching latest target audit")
+        history = self._version_dir(target)
+        found = False
+        if history.exists():
+            for version in history.iterdir():
+                self._confined(version, history)
+                if not version.is_file() or version.suffix != ".md":
+                    raise StorageDurabilityError("Unexpected incomplete version inventory")
+                found = compute_sha256(version.read_bytes()) == digest or found
+        if not found:
+            raise StorageDurabilityError("Identical canonical bytes have no matching immutable version")
 
-        if val_res.state not in ("CONFIRMED", "STALE", "RETIRED"):
-            raise PromotionGateError(
-                f"Target lifecycle state '{val_res.state}' is not a valid canonical state (CONFIRMED required)."
-            )
+    def _new_version(self, target: str, actor: str, digest: str) -> tuple[Path, str]:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        actor_safe = re.sub(r"[^A-Za-z0-9._-]", "_", actor)
+        name = f"{now.strftime('%Y%m%dT%H%M%S%fZ')}_{actor_safe}_{digest[7:15]}.md"
+        version = self._confined(self._version_dir(target) / name, self.versions_dir)
+        if version.exists():
+            raise StorageDurabilityError(f"Version already exists: {version}")
+        return version, now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        return metadata, str(val_res.state)
+    def _snapshot(self, path: Path) -> tuple[bytes | None, int | None]:
+        self._confined(path, self.base_dir)
+        if not path.exists():
+            return None, None
+        if not path.is_file():
+            raise StorageBoundaryError(f"Expected regular storage file: {path}")
+        return path.read_bytes(), path.stat().st_mode & 0o777
+
+    @staticmethod
+    def _stage(path: Path, raw: bytes, mode: int, staging: list[Path]) -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile("wb", dir=str(path.parent), delete=False) as stream:
+            temp = Path(stream.name)
+            staging.append(temp)
+            os.fchmod(stream.fileno(), mode)
+            if stream.write(raw) != len(raw):
+                raise OSError("short storage write")
+            stream.flush()
+            os.fsync(stream.fileno())
+        return temp
+
+    def _publish(self, updates: list[tuple[Path, bytes]],
+                 appends: list[tuple[Path, dict[str, Any]]]) -> None:
+        """Compensate a single writer's raised exceptions; never retry a caller."""
+        staging: list[Path] = []
+        attempted: list[tuple[Path, bytes, bool]] = []
+        before: dict[Path, tuple[bytes | None, int | None]] = {}
+        recovery_errors = []
+        failure = None
+        try:
+            for path, _ in updates + appends:
+                before[path] = self._snapshot(path)
+            prepared = [(path, raw, self._stage(
+                path, raw, before[path][1] if before[path][1] is not None else 0o600, staging))
+                        for path, raw in updates]
+            for path, raw, temp in prepared:
+                if self._snapshot(path) != before[path]:
+                    raise OSError("storage changed before publication")
+                attempted.append((path, raw, False))
+                os.replace(str(temp), str(path))
+            for path, entry in appends:
+                if self._snapshot(path) != before[path]:
+                    raise OSError("log changed before append")
+                line = json.dumps(entry, ensure_ascii=False) + "\n"
+                attempted.append((path, line.encode("utf-8"), True))
+                with open(path, "a", encoding="utf-8") as stream:
+                    if stream.write(line) != len(line):
+                        raise OSError("short log append")
+                    stream.flush()
+                    os.fsync(stream.fileno())
+        except Exception as exc:
+            failure = exc
+            for path, payload, append in reversed(attempted):
+                try:
+                    old, mode = before[path]
+                    current, current_mode = self._snapshot(path)
+                    if (current, current_mode) == (old, mode):
+                        continue
+                    expected_mode = mode if mode is not None else 0o600
+                    owned = current == payload
+                    if append:
+                        prior = old or b""
+                        owned = (current is not None and current.startswith(prior)
+                                 and payload.startswith(current[len(prior):]))
+                    if not owned or current_mode != expected_mode:
+                        raise OSError("unexpected storage change; refusing to overwrite foreign bytes")
+                    if old is None:
+                        path.unlink()
+                    else:
+                        restore = self._stage(path, old, expected_mode, staging)
+                        os.replace(str(restore), str(path))
+                except Exception as recovery:
+                    recovery_errors.append(f"{path.name}: {recovery}")
+        finally:
+            for temp in staging:
+                try:
+                    temp.unlink(missing_ok=True)
+                except OSError as cleanup:
+                    recovery_errors.append(f"staging cleanup: {cleanup}")
+        if failure is not None or recovery_errors:
+            suffix = f"; recovery failed: {'; '.join(recovery_errors)}" if recovery_errors else "; prior bytes restored"
+            raise StorageDurabilityError(f"Storage operation failed: {failure}{suffix}") from failure
 
     def commit(
-        self,
-        target_path: str,
-        content: str,
-        actor: str,
-        reason: str,
-        metadata: Mapping[str, Any] | None = None,
-        approval_token: str | None = None,
+        self, target_path: str, content: str, actor: str, reason: str,
+        metadata: Mapping[str, Any] | None = None, approval_token: str | None = None,
         as_of: datetime.date | None = None,
     ) -> KnowledgeTrustResult:
-        """Validate through lifecycle gate and commit an immutable version to memory_trust."""
         if not isinstance(content, str):
             raise KnowledgeTrustError("content must be a string")
-
-        raw_bytes = content.encode("utf-8")
-        if len(raw_bytes) > _MAX_BYTES:
-            raise StorageBoundaryError(f"content exceeds max bytes ({len(raw_bytes)} > {_MAX_BYTES})")
-
-        # 1. Lifecycle Validation (Promotion Gate)
-        meta, canonical_state = self._validate_lifecycle(content, metadata, as_of=as_of)
-
-        # 2. Path & Boundary Validation
-        store_file = self._validate_target_path(target_path)
-        version_dir = self.versions_dir / target_path
-        version_dir.mkdir(parents=True, exist_ok=True)
-
-        # 3. Compute Hashes & Check No-op
-        before_hash = "none"
-        if store_file.exists() and store_file.is_file():
-            before_hash = compute_sha256(store_file.read_bytes())
-            # Check line delta if not authorized
-            before_lines = len(store_file.read_text(encoding="utf-8", errors="replace").splitlines())
-            after_lines = len(content.splitlines())
-            delta = abs(after_lines - before_lines)
+        raw = content.encode("utf-8")
+        if len(raw) > _MAX_BYTES:
+            raise StorageBoundaryError("content exceeds maximum bytes")
+        _, state = self._validate_lifecycle(content, metadata, as_of=as_of)
+        target_path = self._normalize_target(target_path)
+        store = self._validate_target_path(target_path)
+        records = self._audit_records()
+        previous = self._guard_existing(target_path, store, state, records, as_of)
+        before_hash = compute_sha256(previous) if previous is not None else "none"
+        after_hash = compute_sha256(raw)
+        if previous is not None:
+            delta = abs(len(previous.decode("utf-8").splitlines()) - len(content.splitlines()))
             if delta > _MAX_LINE_DELTA and not approval_token:
-                raise StorageBoundaryError(
-                    f"line delta ({delta}) exceeds limit ({_MAX_LINE_DELTA}) without approval token"
-                )
-
-        after_hash = compute_sha256(raw_bytes)
+                raise StorageBoundaryError("line delta exceeds limit without approval token")
         if before_hash == after_hash:
-            return KnowledgeTrustResult(
-                success=True,
-                status="NO_CHANGE",
-                target_path=target_path,
-                before_hash=before_hash,
-                after_hash=after_hash,
-                version_path=None,
-                audit_entry=None,
-                changed=False,
-                details={"message": "Content identical to existing canonical store; no-op."},
-            )
+            self._verify_no_change(target_path, after_hash, records)
+            return KnowledgeTrustResult(True, "NO_CHANGE", target_path, before_hash,
+                                        after_hash, None, None, False,
+                                        {"message": "Content identical to existing canonical store; no-op."})
+        version, timestamp = self._new_version(target_path, actor, after_hash)
+        entry = {"ts": timestamp, "actor": actor, "action": "write", "target": target_path,
+                 "before_hash": before_hash, "after_hash": after_hash, "reason": reason,
+                 "state": state, "approval_token": approval_token, "version": version.name}
+        self._publish([(store, raw), (version, raw)], [(self.audit_path, entry)])
+        return KnowledgeTrustResult(True, "COMMITTED", target_path, before_hash,
+                                    after_hash, str(version), entry, True, {"state": state})
 
-        # 4. Write Immutable Version & Store Atomic Update
-        ts_now = datetime.datetime.now(datetime.timezone.utc)
-        ts_iso = ts_now.strftime("%Y-%m-%dT%H:%M:%SZ")
-        ts_file = ts_now.strftime("%Y%m%dT%H%M%SZ")
-        sha8 = after_hash.replace("sha256:", "")[:8]
-        actor_safe = re.sub(r"[^A-Za-z0-9._-]", "_", actor)
-        version_file = version_dir / f"{ts_file}_{actor_safe}_{sha8}.md"
-
-        if version_file.exists():
-            raise StorageDurabilityError(f"version file already exists: {version_file}")
-
-        audit_entry = {
-            "ts": ts_iso,
-            "actor": actor,
-            "action": "write",
-            "target": target_path,
-            "before_hash": before_hash,
-            "after_hash": after_hash,
-            "reason": reason,
-            "state": canonical_state,
-            "approval_token": approval_token,
-        }
-
-        # Atomic writes using temp files
-        tmp_store = None
-        tmp_version = None
+    def rollback(self, target_path: str, version_filename: str,
+                 actor: str, reason: str) -> KnowledgeTrustResult:
+        target_path = self._normalize_target(target_path)
+        store = self._validate_target_path(target_path)
+        version = self._version_file(target_path, version_filename)
+        restored = version.read_bytes()
         try:
-            store_file.parent.mkdir(parents=True, exist_ok=True)
-            with tempfile.NamedTemporaryFile("wb", dir=str(store_file.parent), delete=False) as f_store:
-                tmp_store = Path(f_store.name)
-                f_store.write(raw_bytes)
-                f_store.flush()
-                os.fsync(f_store.fileno())
+            _, state = self._validate_lifecycle(restored.decode("utf-8"))
+        except UnicodeError as exc:
+            raise PromotionGateError("Version is not UTF-8 Markdown") from exc
+        previous = self._guard_existing(target_path, store, state, self._audit_records())
+        before_hash = compute_sha256(previous) if previous is not None else "none"
+        after_hash = compute_sha256(restored)
+        entry = {"ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                 "actor": actor, "action": "rollback", "target": target_path,
+                 "restored_version": version_filename, "version": version.name,
+                 "before_hash": before_hash, "after_hash": after_hash, "reason": reason, "state": state}
+        self._publish([(store, restored)], [(self.audit_path, entry)])
+        return KnowledgeTrustResult(True, "ROLLED_BACK", target_path, before_hash,
+                                    after_hash, str(version), entry, True,
+                                    {"restored_version": version_filename})
 
-            with tempfile.NamedTemporaryFile("wb", dir=str(version_dir), delete=False) as f_ver:
-                tmp_version = Path(f_ver.name)
-                f_ver.write(raw_bytes)
-                f_ver.flush()
-                os.fsync(f_ver.fileno())
-
-            os.replace(str(tmp_store), str(store_file))
-            tmp_store = None
-            os.replace(str(tmp_version), str(version_file))
-            tmp_version = None
-
-            # Append audit log
-            with open(self.audit_path, "a", encoding="utf-8") as f_audit:
-                f_audit.write(json.dumps(audit_entry, ensure_ascii=False) + "\n")
-                f_audit.flush()
-
-        except Exception as err:
-            if tmp_store and tmp_store.exists():
-                tmp_store.unlink(missing_ok=True)
-            if tmp_version and tmp_version.exists():
-                tmp_version.unlink(missing_ok=True)
-            raise StorageDurabilityError(f"Failed to durably commit knowledge: {err}") from err
-
-        return KnowledgeTrustResult(
-            success=True,
-            status="COMMITTED",
-            target_path=target_path,
-            before_hash=before_hash,
-            after_hash=after_hash,
-            version_path=str(version_file),
-            audit_entry=audit_entry,
-            changed=True,
-            details={"state": canonical_state},
-        )
-
-    def rollback(
-        self,
-        target_path: str,
-        version_filename: str,
-        actor: str,
-        reason: str,
-    ) -> KnowledgeTrustResult:
-        """Rollback active store to a previous immutable version without deleting history."""
-        store_file = self._validate_target_path(target_path)
-        version_file = (self.versions_dir / target_path / version_filename).resolve()
-
-        if not version_file.exists() or not version_file.is_file():
-            raise StorageBoundaryError(f"Version file '{version_filename}' not found in versions/{target_path}")
-
-        before_hash = compute_sha256(store_file.read_bytes()) if store_file.exists() else "none"
-        restored_bytes = version_file.read_bytes()
-        after_hash = compute_sha256(restored_bytes)
-
-        ts_now = datetime.datetime.now(datetime.timezone.utc)
-        ts_iso = ts_now.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        # Atomic restore of store file
-        store_file.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile("wb", dir=str(store_file.parent), delete=False) as f_store:
-            tmp_store = Path(f_store.name)
-            f_store.write(restored_bytes)
-            f_store.flush()
-            os.fsync(f_store.fileno())
-
-        os.replace(str(tmp_store), str(store_file))
-
-        audit_entry = {
-            "ts": ts_iso,
-            "actor": actor,
-            "action": "rollback",
-            "target": target_path,
-            "restored_version": version_filename,
-            "before_hash": before_hash,
-            "after_hash": after_hash,
-            "reason": reason,
-        }
-        with open(self.audit_path, "a", encoding="utf-8") as f_audit:
-            f_audit.write(json.dumps(audit_entry, ensure_ascii=False) + "\n")
-            f_audit.flush()
-
-        return KnowledgeTrustResult(
-            success=True,
-            status="ROLLED_BACK",
-            target_path=target_path,
-            before_hash=before_hash,
-            after_hash=after_hash,
-            version_path=str(version_file),
-            audit_entry=audit_entry,
-            changed=True,
-            details={"restored_version": version_filename},
-        )
-
-    def redact(
-        self,
-        target_path: str,
-        version_filename: str,
-        actor: str,
-        reason: str,
-    ) -> KnowledgeTrustResult:
-        """Record redaction event and mask/tombstone active store without destroying history."""
-        store_file = self._validate_target_path(target_path)
-        ts_now = datetime.datetime.now(datetime.timezone.utc)
-        ts_iso = ts_now.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        redact_entry = {
-            "ts": ts_iso,
-            "actor": actor,
-            "target": target_path,
-            "version": version_filename,
-            "reason": reason,
-        }
-        with open(self.redact_path, "a", encoding="utf-8") as f_redact:
-            f_redact.write(json.dumps(redact_entry, ensure_ascii=False) + "\n")
-            f_redact.flush()
-
-        # Update store with tombstone
-        tombstone = f"---\nstate: RETIRED\nasset_type: PROCEDURE\ntitle: Redacted\ncreated: 2026-08-23\nlineage: [system]\n---\n# REDACTED\nThis knowledge item was redacted by {actor}: {reason}\n"
-        tombstone_bytes = tombstone.encode("utf-8")
-        before_hash = compute_sha256(store_file.read_bytes()) if store_file.exists() else "none"
-        after_hash = compute_sha256(tombstone_bytes)
-
-        store_file.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile("wb", dir=str(store_file.parent), delete=False) as f_store:
-            tmp_store = Path(f_store.name)
-            f_store.write(tombstone_bytes)
-            f_store.flush()
-            os.fsync(f_store.fileno())
-
-        os.replace(str(tmp_store), str(store_file))
-
-        audit_entry = {
-            "ts": ts_iso,
-            "actor": actor,
-            "action": "redact",
-            "target": target_path,
-            "redacted_version": version_filename,
-            "before_hash": before_hash,
-            "after_hash": after_hash,
-            "reason": reason,
-        }
-        with open(self.audit_path, "a", encoding="utf-8") as f_audit:
-            f_audit.write(json.dumps(audit_entry, ensure_ascii=False) + "\n")
-            f_audit.flush()
-
-        return KnowledgeTrustResult(
-            success=True,
-            status="REDACTED",
-            target_path=target_path,
-            before_hash=before_hash,
-            after_hash=after_hash,
-            version_path=None,
-            audit_entry=audit_entry,
-            changed=True,
-            details={"redacted_version": version_filename},
-        )
+    def redact(self, target_path: str, version_filename: str,
+               actor: str, reason: str) -> KnowledgeTrustResult:
+        target_path = self._normalize_target(target_path)
+        store = self._validate_target_path(target_path)
+        self._version_file(target_path, version_filename)
+        tombstone = ("---\nstate: RETIRED\nasset_type: PROCEDURE\ntitle: Redacted\n"
+                     "created: 2026-08-23\nlineage:\n  - system\n---\n# REDACTED\n"
+                     f"This knowledge item was redacted by {actor}: {reason}\n")
+        _, state = self._validate_lifecycle(tombstone)
+        previous = self._guard_existing(target_path, store, state, self._audit_records())
+        before_hash = compute_sha256(previous) if previous is not None else "none"
+        raw = tombstone.encode("utf-8")
+        after_hash = compute_sha256(raw)
+        version, timestamp = self._new_version(target_path, actor, after_hash)
+        redaction = {"ts": timestamp, "actor": actor, "target": target_path,
+                     "version": version_filename, "reason": reason}
+        entry = {"ts": timestamp, "actor": actor, "action": "redact", "target": target_path,
+                 "redacted_version": version_filename, "version": version.name,
+                 "before_hash": before_hash, "after_hash": after_hash, "reason": reason, "state": state}
+        self._publish([(store, raw), (version, raw)],
+                      [(self.redact_path, redaction), (self.audit_path, entry)])
+        return KnowledgeTrustResult(True, "REDACTED", target_path, before_hash,
+                                    after_hash, None, entry, True,
+                                    {"redacted_version": version_filename})
 
     def export_canonical_knowledge(self) -> list[dict[str, Any]]:
-        """Deterministically enumerate and export all canonical knowledge items for Phase 3C."""
+        self._check_storage()
         entries: list[dict[str, Any]] = []
-        if not self.store_dir.exists():
-            return entries
-
         for root, _, files in os.walk(str(self.store_dir)):
             for fname in sorted(files):
                 if fname.startswith("."):
                     continue
-                file_path = Path(root) / fname
-                rel_path = str(file_path.relative_to(self.store_dir)).replace("\\", "/")
-                content = file_path.read_text(encoding="utf-8", errors="replace")
-                digest = compute_sha256(content.encode("utf-8"))
-                entries.append(
-                    {
-                        "target_path": rel_path,
-                        "content": content,
-                        "sha256": digest,
-                        "mtime": file_path.stat().st_mtime,
-                    }
-                )
-        # Deterministic sort by relative target path
-        entries.sort(key=lambda x: x["target_path"])
+                path = self._confined(Path(root) / fname, self.store_dir)
+                content = path.read_text(encoding="utf-8", errors="replace")
+                entries.append({"target_path": path.relative_to(self.store_dir).as_posix(),
+                                "content": content, "sha256": compute_sha256(content),
+                                "mtime": path.stat().st_mtime})
+        entries.sort(key=lambda entry: entry["target_path"])
         return entries
