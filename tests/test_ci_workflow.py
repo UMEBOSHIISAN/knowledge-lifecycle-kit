@@ -1,4 +1,5 @@
 from pathlib import Path
+import shlex
 import unittest
 
 
@@ -14,9 +15,29 @@ class CiWorkflowTests(unittest.TestCase):
         self.assertIn("push:", workflow)
         self.assertIn("python-version: '3.11'", workflow)
         self.assertIn("python -m pytest -q tests", workflow)
-        self.assertIn("python -m unittest -v tests/test_routing.py tests/test_public_layout.py tests/test_verify_test_wheelhouse.py tests/test_public_boundary.py tests/test_ci_workflow.py", workflow)
         self.assertIn("python tools/check_public_boundary.py .", workflow)
 
         for forbidden in ("secrets", "publish", "release", "deploy", "curl", "wget"):
             self.assertNotIn(forbidden, workflow.lower())
 
+    def test_ci_unittest_command_collects_existing_tests(self):
+        """A stale workflow target must fail before a CI run is advertised as valid."""
+        commands = [
+            shlex.split(line.strip().removeprefix("run: "))
+            for line in WORKFLOW.read_text(encoding="utf-8").splitlines()
+            if line.strip().startswith("run: python -m unittest ")
+        ]
+        self.assertEqual(len(commands), 1)
+        arguments = commands[0][3:]
+        loader = unittest.TestLoader()
+        if arguments[0] == "discover":
+            start = arguments[arguments.index("-s") + 1]
+            suite = loader.discover(str(ROOT / start))
+        else:
+            targets = [
+                arg.removesuffix(".py").replace("/", ".")
+                for arg in arguments if not arg.startswith("-")
+            ]
+            suite = loader.loadTestsFromNames(targets)
+        self.assertEqual(loader.errors, [])
+        self.assertGreater(suite.countTestCases(), 0)

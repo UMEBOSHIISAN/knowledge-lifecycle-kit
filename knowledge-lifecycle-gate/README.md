@@ -2,11 +2,13 @@
 
 ![Knowledge Lifecycle Gate mark](assets/knowledge-lifecycle-gate-mark.svg)
 
-Read-only knowledge-asset lifecycle checks for local evaluation.
+Offline knowledge-asset lifecycle checks and an optional local writer API for candidate evaluation.
 
-`knowledge-lifecycle-gate` is a small, read-only package for inspecting Markdown knowledge-asset metadata, validating a public lifecycle profile, detecting expired confirmed evidence, and proposing the next safe state.
+The `klg inspect`, `klg validate`, and `klg propose-transition` commands inspect Markdown knowledge-asset metadata, validate a public lifecycle profile, detect expired confirmed evidence, and propose the next safe state. These CLI commands are read-only.
 
-It does not modify source files, append lifecycle events, promote assets automatically, simulate human approval, access a network, call an external API, use an LLM, or depend on an operational host.
+The CLI does not modify source files, append lifecycle events, promote assets automatically, or simulate human approval.
+
+The package also exports an optional `KnowledgeTrustWriter` Python API. Constructing it initializes local store, version, audit, and redaction paths; commit, rollback, and redact operations can write local files. This API is not invoked by the three CLI commands above. Callers must authorize their target and operation separately; a validation result or an approval-token string is not human authentication or execution permission. Neither interface accesses a network, calls an external API, uses an LLM, or requires an operational host.
 
 This package is an adapter profile, not a replacement for any larger lifecycle implementation. The public profile is intentionally limited to:
 

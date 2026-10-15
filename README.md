@@ -5,7 +5,8 @@
 Knowledge Lifecycle Kit is a public-surface candidate containing an offline-safe component:
 
 - `knowledge-lifecycle-gate/` — read-only Markdown asset inspection and
-  human-gated lifecycle proposals.
+  human-gated lifecycle proposals through the `klg` CLI. The package also exports
+  an optional `KnowledgeTrustWriter` Python API that explicitly writes local files.
 
 No provider adapter, credential, private registry, runtime log, or operational
 wrapper is included in this public candidate.
@@ -44,6 +45,13 @@ Machine code may inspect, validate, and propose transitions. Human authority
 remains required for recorded lifecycle changes and any execution. Schedulers,
 daemons, external APIs, credentials, and deployment configuration are out of
 scope.
+
+The read-only boundary applies to `klg inspect`, `klg validate`, and
+`klg propose-transition`, not every Python API in the package. Constructing
+`KnowledgeTrustWriter` creates its local store, version, audit, and redaction
+paths; its commit, rollback, and redact methods can write files. A caller must
+authorize the target and operation separately. The API and its validation
+results do not authenticate human approval or grant execution authority.
 
 See [PUBLIC_OSS_CANDIDATE.md](PUBLIC_OSS_CANDIDATE.md) for the exclusion and
 release-readiness audit.

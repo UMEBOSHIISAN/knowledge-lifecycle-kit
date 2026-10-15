@@ -20,7 +20,7 @@ jobs:
       - name: Test knowledge lifecycle gate
         working-directory: knowledge-lifecycle-gate
         run: python -m pytest -q tests
-      - name: Test routing and public contracts
-        run: python -m unittest -v tests/test_routing.py tests/test_public_layout.py tests/test_verify_test_wheelhouse.py tests/test_public_boundary.py tests/test_ci_workflow.py
+      - name: Test public contracts and build artifacts
+        run: python -m unittest discover -s tests -v
       - name: Scan public boundary
         run: python tools/check_public_boundary.py .

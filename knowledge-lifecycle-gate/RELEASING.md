@@ -13,6 +13,8 @@ This checklist prepares a candidate OSS release without publishing it.
 7. Obtain an explicit human publication decision before any registry upload,
    repository push, tag, or release action.
 
-No CI, publishing credential, registry URL, or deployment command is included
-in this package. Those are deliberate authority boundaries, not missing
-runtime features.
+The enclosing repository includes test-only CI. This component includes no
+publishing credential, registry URL or deployment command. The three klg
+commands are read-only; the exported KnowledgeTrustWriter is a local writer
+API and is outside that guarantee. See the enclosing repository's
+RELEASE_READINESS.md and docs/asset-rights.md before any publication decision.
