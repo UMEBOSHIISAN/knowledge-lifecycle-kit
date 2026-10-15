@@ -64,6 +64,7 @@ def _write_metadata(directory: Path) -> str:
     (dist_info / "METADATA").write_bytes(_metadata())
     (dist_info / "WHEEL").write_bytes(_wheel_metadata())
     (dist_info / "entry_points.txt").write_bytes(_entry_points())
+    (dist_info / "LICENSE").write_bytes((ROOT / "LICENSE").read_bytes())
     return DIST_INFO
 
 
@@ -107,6 +108,7 @@ def _write_wheel(wheel_directory, *, editable: bool) -> str:
             (f"{DIST_INFO}/METADATA", _metadata()),
             (f"{DIST_INFO}/WHEEL", _wheel_metadata()),
             (f"{DIST_INFO}/entry_points.txt", _entry_points()),
+            (f"{DIST_INFO}/LICENSE", (ROOT / "LICENSE").read_bytes()),
         ]
     )
     records = [_record(name, content) for name, content in files]
