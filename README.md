@@ -2,7 +2,7 @@
 
 <picture>
   <source media="(prefers-reduced-motion: reduce)" srcset="knowledge-lifecycle-gate/assets/knowledge-lifecycle-orbit.png">
-  <img src="knowledge-lifecycle-gate/assets/knowledge-lifecycle-orbit.gif" width="192" height="192" alt="A whale and moon with three books orbiting between them">
+  <img src="knowledge-lifecycle-gate/assets/knowledge-lifecycle-orbit.gif" width="192" height="192" alt="A green whale and crescent moon with three books orbiting between them">
 </picture>
 
 [Static logo](knowledge-lifecycle-gate/assets/knowledge-lifecycle-orbit.png)

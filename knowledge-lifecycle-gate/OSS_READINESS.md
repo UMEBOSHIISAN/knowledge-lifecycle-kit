@@ -9,7 +9,7 @@ Local preparation verified on 2026-10-15; no publication authority is implied.
 - [x] Fresh fixed-source suites and expiry/promotion/nonmutation checks
 - [x] Actual CI discovery command corrected; collection regression added
 - [x] Actual regular/editable artifact-license regressions
-- [x] Legacy SVG/PNG permission and new whale/moon GIF/PNG provenance inventory
+- [x] Legacy SVG/PNG permission and adopted green whale GIF/PNG provenance inventory
 - [x] Scoped README onboarding/logo updates; CLI/writer boundary documented
 - [x] Reachable-history and obtainable-log pattern checks scoped in the audit
 

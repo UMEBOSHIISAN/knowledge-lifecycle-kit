@@ -14,6 +14,9 @@ transitions, and propose changes for human review.
   committed, together with its matching CI receipt in the existing task result.
 - Original README bytes were preserved through `be74b8ca`; the maintainer then
   requested scoped onboarding and logo updates. The CLI/writer claim is retained.
+- The maintainer subsequently selected the green whale GIF as the formal logo.
+  This asset/documentation envelope preserves runtime and workflow bytes; its
+  own final SHA and matching CI are measured in the separate candidate receipt.
 - Root/component MIT files are identical.
 - The three klg commands are read-only; the exported local writer is outside
   that claim.
@@ -36,7 +39,7 @@ transitions, and propose changes for human review.
 - [x] Source/regular-wheel archive paths inspected.
 - [x] README onboarding corrected at the maintainer's request; CLI/writer
   boundaries retained and contributor guidance aligned.
-- [x] Legacy SVG/PNG permission and new whale/moon GIF/PNG provenance recorded.
+- [x] Legacy SVG/PNG permission and adopted green whale GIF/PNG provenance recorded.
 - [x] Bounded independent advisory design/code review received and parent
   verification performed; review grants no execution authority.
 - [x] Human's exact protected CI approval received before application.

@@ -91,8 +91,11 @@ onboarding commands, CLI/writer contributor wording, the logo, and repository
 About metadata. The original README bytes were preserved through `be74b8ca`;
 the scoped presentation updates now revise those documents while retaining
 the same runtime, tests, build backend, workflow, and claim boundary.
-The new whale/moon logo has orbiting books in a bounded-size GIF and a static
-PNG companion. Its separate creation/publication basis and exact hashes are
+The maintainer subsequently selected a simpler green whale as the formal logo
+and explicitly requested its publication. It has orbiting books in a 192-pixel
+README display and a matching static PNG companion. This asset/documentation
+update preserves the runtime, tests, build backend, workflow, and claim.
+Its separate creation/publication basis and current exact hashes are
 recorded in [asset rights](docs/asset-rights.md). Earlier inventory counts below
 describe the original audit scope, not these later added files.
 

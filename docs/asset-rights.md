@@ -35,30 +35,36 @@ This grant does not cover UMEBOSHI character/brand IP or any other image.
 The historical social-preview PNG on a separate local documentation branch
 is outside this candidate and outside the declaration recorded here.
 
-## Whale, moon, and orbiting books — 2026-10-15
+## Current green whale, moon, and orbiting books — 2026-10-15
 
 The maintainer directly requested a replacement logo and publication of the
 four presentation fixes, then specified a whale and moon with books moving
-between them, and explicitly selected an animated GIF. These new assets are
-published under the repository MIT license as part of that requested work.
+between them, and explicitly selected an animated GIF. After reviewing simpler
+forms and color variants, the maintainer explicitly selected the green GIF as
+the formal logo and requested README replacement, revalidation, and publication.
+These current assets are offered under the repository MIT license to the extent
+the maintainer holds rights, as part of that requested work. They replace the
+detailed blue artwork at `4e7387d`; those superseded versions remain in Git history.
 The legacy file-specific declaration above is not presented as evidence about
 these new hashes.
 
-| New asset | SHA-256 |
+| Current asset | SHA-256 |
 | --- | --- |
-| knowledge-lifecycle-gate/assets/knowledge-lifecycle-orbit.gif | `6d3c44c7f6af584cd9b38de59811f09717afa0e0cf90fe5441c0bf493bf38e5d` |
-| knowledge-lifecycle-gate/assets/knowledge-lifecycle-orbit.png | `95853690ffd001babd0ea89e0855426dd8672d1843d82cce81fc5790c1f188fa` |
+| knowledge-lifecycle-gate/assets/knowledge-lifecycle-orbit.gif | `6e99e541ea65976d7fe28b65738127a7b0ea1638f71023a6aef8f1f6242cf853` |
+| knowledge-lifecycle-gate/assets/knowledge-lifecycle-orbit.png | `e05706ca474e2433e68e5bc1d4b098ce276c1de227e0b8026f23c0b6255843aa` |
 
-New whale/moon and book artwork was generated with the built-in image
-generation tool for this task, without supplied third-party reference images
-or reused UMEBOSHI character/brand assets. FFmpeg composed the orbital motion;
+Per the private task record, the whale/moon and book artwork, simplification,
+and green color edits used the built-in image generation tool for this task.
+Edit references were this task's own generated artwork, without supplied
+third-party reference images or reused
+UMEBOSHI character/brand assets. FFmpeg composed the orbital motion;
 a GIF codec repacked identical rendered pixels into a compact loop. The PNG is
 a static companion. The private task record retains prompts, original-output
 hashes, encoding commands, and frame/pixel verification.
 
-The exported GIF and PNG are both 384 by 384 pixels. The GIF has 40 frames
-over a two-second visual loop. Three identical
-books are spaced equally; each book's apparent orbit takes six seconds.
+The exported GIF and PNG are both 384 by 384 pixels. The GIF has 120 frames
+at 50 milliseconds per frame over a six-second loop and is 391,159 bytes.
+Three identical books are spaced equally; each book's orbit takes six seconds.
 README display is limited to 192 pixels, with a static link and a reduced-motion
 picture source. The illustration is a visual metaphor; it adds no claim of
 automatic knowledge adoption, training, or execution.
