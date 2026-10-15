@@ -12,7 +12,8 @@ transitions, and propose changes for human review.
 - Implementation SHA: `96e7edadc770a03afe34cc7dbd95b6eba4c776db`.
 - Final documentation-envelope SHA: recorded from Git after this record is
   committed, together with its matching CI receipt in the existing task result.
-- Original README bytes were preserved and integrated.
+- Original README bytes were preserved through `be74b8ca`; the maintainer then
+  requested scoped onboarding and logo updates. The CLI/writer claim is retained.
 - Root/component MIT files are identical.
 - The three klg commands are read-only; the exported local writer is outside
   that claim.
@@ -33,8 +34,9 @@ transitions, and propose changes for human review.
 - [x] Full LICENSE included in regular/editable wheels and prepared metadata;
   artifact regression tests verify actual bytes and RECORD binding.
 - [x] Source/regular-wheel archive paths inspected.
-- [x] Existing README content preserved and CLI/writer boundaries aligned.
-- [x] Identified SVG/PNG covered by the maintainer's direct MIT permission.
+- [x] README onboarding corrected at the maintainer's request; CLI/writer
+  boundaries retained and contributor guidance aligned.
+- [x] Legacy SVG/PNG permission and new whale/moon GIF/PNG provenance recorded.
 - [x] Bounded independent advisory design/code review received and parent
   verification performed; review grants no execution authority.
 - [x] Human's exact protected CI approval received before application.
@@ -75,9 +77,9 @@ measured independently after an authorized private-branch push.
 
 ## Rights, limitations and human decision
 
-The two current KLG logos have file-specific rightsholder-declared MIT
-permission: [asset rights](docs/asset-rights.md). This is not independent legal
-certification or a grant over other images/UMEBOSHI brand IP.
+The legacy two-logo permission and the new whale/moon GIF/PNG creation and
+publication basis are separated in [asset rights](docs/asset-rights.md).
+Neither is independent legal certification or a grant over UMEBOSHI brand IP.
 
 Reachable-history pattern checks and obtainable logs were inspected, with
 unavailable/deleted/hidden history and exhaustive binary/rights guarantees

@@ -86,6 +86,16 @@ bytes; the seven CLI cases were rerun at the implementation SHA.
 
 ## Confidentiality, assets, rights and links
 
+The maintainer subsequently requested four public-presentation corrections:
+onboarding commands, CLI/writer contributor wording, the logo, and repository
+About metadata. The original README bytes were preserved through `be74b8ca`;
+the scoped presentation updates now revise those documents while retaining
+the same runtime, tests, build backend, workflow, and claim boundary.
+The new whale/moon logo has orbiting books in a bounded-size GIF and a static
+PNG companion. Its separate creation/publication basis and exact hashes are
+recorded in [asset rights](docs/asset-rights.md). Earlier inventory counts below
+describe the original audit scope, not these later added files.
+
 The initial reachable-history review covered four local refs, 14 commits,
 173 objects, 96 blobs (94 UTF-8 text blobs plus two PNGs), and commit messages.
 Recorded credential/private-path/private-link patterns had no matches.

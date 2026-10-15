@@ -9,8 +9,8 @@ Local preparation verified on 2026-10-15; no publication authority is implied.
 - [x] Fresh fixed-source suites and expiry/promotion/nonmutation checks
 - [x] Actual CI discovery command corrected; collection regression added
 - [x] Actual regular/editable artifact-license regressions
-- [x] SVG/PNG visual/metadata inventory and direct rightsholder MIT declaration
-- [x] Existing README bytes retained; CLI/writer boundary documented
+- [x] Legacy SVG/PNG permission and new whale/moon GIF/PNG provenance inventory
+- [x] Scoped README onboarding/logo updates; CLI/writer boundary documented
 - [x] Reachable-history and obtainable-log pattern checks scoped in the audit
 
 Exact final-envelope SHA, matching remote CI and human publication authority
@@ -23,4 +23,4 @@ component is included. External-maintainer/different-machine acceptance, sdist
 release, exclusive artwork rights and full writer durability are not claimed.
 
 See [the audit](../PUBLIC_OSS_CANDIDATE.md) and
-[the two-logo permission](../docs/asset-rights.md).
+[the artwork provenance and permission record](../docs/asset-rights.md).

@@ -1,6 +1,7 @@
 # KLG artwork provenance and license record
 
-Recorded 2026-10-15. Scope: the two KLG gate-and-branch logo files only.
+Recorded 2026-10-15. The original declaration below covers the two legacy
+gate-and-branch files; the new whale/moon identity is recorded separately.
 
 | Asset | SHA-256 |
 | --- | --- |
@@ -33,3 +34,34 @@ file-specific permission for this preparation record.
 This grant does not cover UMEBOSHI character/brand IP or any other image.
 The historical social-preview PNG on a separate local documentation branch
 is outside this candidate and outside the declaration recorded here.
+
+## Whale, moon, and orbiting books — 2026-10-15
+
+The maintainer directly requested a replacement logo and publication of the
+four presentation fixes, then specified a whale and moon with books moving
+between them, and explicitly selected an animated GIF. These new assets are
+published under the repository MIT license as part of that requested work.
+The legacy file-specific declaration above is not presented as evidence about
+these new hashes.
+
+| New asset | SHA-256 |
+| --- | --- |
+| knowledge-lifecycle-gate/assets/knowledge-lifecycle-orbit.gif | `6d3c44c7f6af584cd9b38de59811f09717afa0e0cf90fe5441c0bf493bf38e5d` |
+| knowledge-lifecycle-gate/assets/knowledge-lifecycle-orbit.png | `95853690ffd001babd0ea89e0855426dd8672d1843d82cce81fc5790c1f188fa` |
+
+New whale/moon and book artwork was generated with the built-in image
+generation tool for this task, without supplied third-party reference images
+or reused UMEBOSHI character/brand assets. FFmpeg composed the orbital motion;
+a GIF codec repacked identical rendered pixels into a compact loop. The PNG is
+a static companion. The private task record retains prompts, original-output
+hashes, encoding commands, and frame/pixel verification.
+
+The exported GIF and PNG are both 384 by 384 pixels. The GIF has 40 frames
+over a two-second visual loop. Three identical
+books are spaced equally; each book's apparent orbit takes six seconds.
+README display is limited to 192 pixels, with a static link and a reduced-motion
+picture source. The illustration is a visual metaphor; it adds no claim of
+automatic knowledge adoption, training, or execution.
+
+This provenance record does not establish exclusive copyright, certify
+trademark clearance, or independently guarantee legal rights in all jurisdictions.

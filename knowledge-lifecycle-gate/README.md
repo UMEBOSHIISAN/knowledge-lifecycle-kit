@@ -1,6 +1,11 @@
 # knowledge-lifecycle-gate
 
-![Knowledge Lifecycle Gate mark](assets/knowledge-lifecycle-gate-mark.svg)
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="assets/knowledge-lifecycle-orbit.png">
+  <img src="assets/knowledge-lifecycle-orbit.gif" width="192" height="192" alt="A whale and moon with three books orbiting between them">
+</picture>
+
+[Static logo](assets/knowledge-lifecycle-orbit.png)
 
 Offline knowledge-asset lifecycle checks and an optional local writer API for candidate evaluation.
 
@@ -33,12 +38,17 @@ The package supports a documented strict YAML-frontmatter subset: top-level scal
 
 ## Development
 
+From this component directory in a checkout of the public repository:
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[test]'
 python -m pytest -q
 ```
+
+For a runtime-only install, use `python -m pip install .` without the `[test]`
+extra. See [Quickstart](QUICKSTART.md) for the complete clone-to-CLI sequence.
 
 The package is intended for candidate evaluation. Publication requires an explicit
 human decision and a separate release review.
