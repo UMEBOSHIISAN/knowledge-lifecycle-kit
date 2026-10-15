@@ -1,20 +1,26 @@
 # Public OSS candidate audit
 
-## Fixed-source result
+## Current public-source audit
 
-**LOCAL_PREPARATION_VERIFIED — 2026-10-15 JST.**
-Publication still requires a separate human decision and passing remote CI for
-the exact selected candidate. This document is not publication authority.
+**APPROVE_SCOPED — source audited 2026-10-15 JST; record updated 2026-10-16.**
 
-- Audited implementation SHA: `96e7edadc770a03afe34cc7dbd95b6eba4c776db`.
-- Earlier baseline: `57927750aa85ee7409ef80ffd83e40b6ca8763b7`.
-- The final documentation-envelope SHA and its own remote CI evidence are
-  measured separately in the task's immutable per-candidate receipt. A document
-  cannot contain its own future Git commit hash. Do not reuse a run for the
-  implementation SHA as proof of a different envelope SHA.
-- Remote main measured during the initial review:
-  `a8d8a79f11a58316b5a9279e023fa96903ead426`, repository private.
-  August successes remain historical only.
+- Fixed audited public source: `411d6b3642f359dfbaa4529337e47a842702e4d3`.
+- Anonymous main API, clone and fixed-SHA archive agreed on all 61 source files.
+- Fresh regular installed-package suite: 81 passed; root suite: 9 passed.
+  These are 90 unique tests, comprising 50 existing and 40 Writer regressions.
+- A separate fresh editable test install passed the same 81 component cases.
+- Writer W1–W6 were verified within the single-writer synchronous-Exception
+  scope; no additional required correction was found in that audit.
+- Both README displays, the green GIF/PNG, Quickstart and 12 distinct public
+  link/image targets were checked. CLI source/example nonmutation was verified.
+- [Full scoped summary](docs/verification-411d6b36.md) and
+  [sanitized measurements](verification/public-audit-411d6b36.json) distinguish
+  public hashes from private parent-verified artifacts and unverified scope.
+- Main CI [38719897632](https://github.com/UMEBOSHIISAN/knowledge-lifecycle-kit/actions/runs/38719897632)
+  succeeded for `411d6b36`. This is evidence for that source only. A later
+  documentation commit requires its own measured exact-head CI receipt,
+  kept outside the source commit. This document does not assert that future
+  result or grant publication authority.
 
 ## Accepted claim
 
@@ -32,7 +38,19 @@ The original README changes distinguishing these surfaces were preserved
 byte-for-byte and integrated into the implementation SHA. Relationship and
 release guidance use the same boundary.
 
-## Fresh implementation verification
+## Historical preparation evidence
+
+The remainder of this section preserves the earlier packaging/CI, presentation,
+confidentiality and advisory-review record. Its implementation is
+`96e7edadc770a03afe34cc7dbd95b6eba4c776db`; its environment was reused and its
+41+9 test counts, initial private-repository observations and old run inventories
+are historical, not the current source or a new audit of the documentation
+commit. The initial baseline was `57927750aa85ee7409ef80ffd83e40b6ca8763b7`,
+and initially measured private main was
+`a8d8a79f11a58316b5a9279e023fa96903ead426`. Publication and logo updates
+subsequently occurred under the maintainer's separate instructions.
+
+### Historical implementation verification
 
 A fixed Git archive of the implementation SHA was checked using the existing
 Python 3.11.15 / pytest 8.3.5 environment. No dependency was installed and no
@@ -64,7 +82,7 @@ License path: `knowledge_lifecycle_gate-0.1.0.dist-info/LICENSE`.
 Notice SHA-256:
 `7d16cd34611446171445cff3a3ac28aa80c374e2ce52cf161bb95c1061145551`.
 
-## Lifecycle behavior
+### Lifecycle behavior
 
 | Case | Result |
 | --- | --- |
@@ -84,7 +102,7 @@ freshness separately; FRESH does not override validation errors. The date
 metadata checks from the initial review remain bound to unchanged validator
 bytes; the seven CLI cases were rerun at the implementation SHA.
 
-## Confidentiality, assets, rights and links
+### Confidentiality, assets, rights and links
 
 The maintainer subsequently requested four public-presentation corrections:
 onboarding commands, CLI/writer contributor wording, the logo, and repository
@@ -127,7 +145,7 @@ example.invalid schema URLs in history are synthetic fixtures.
 No raw Actions logs, private task evidence or approval tokens are included in
 the candidate.
 
-## Actions review and external evidence
+### Actions review and external evidence
 
 Read-only observations used measured UMEBOSHIISAN credentials. Actions were
 enabled, all actions allowed, SHA pinning not required; default workflow
@@ -150,7 +168,7 @@ executed the tests and resolved its checks about the component LICENSE,
 local-only test discovery and the absent sdist builder. The human separately
 provided the protected CI edit/execution tokens.
 
-## Evidence and limits
+### Evidence and limits
 
 Private full records remain under task `20261015_klg_public_review`.
 Implementation verification record SHA-256:

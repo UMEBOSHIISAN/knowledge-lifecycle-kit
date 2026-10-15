@@ -1,0 +1,267 @@
+{
+  "audited_source_sha": "411d6b3642f359dfbaa4529337e47a842702e4d3",
+  "audited_on_jst": "2026-10-15",
+  "summary_prepared_on_jst": "2026-10-16",
+  "verdict": "APPROVE_SCOPED",
+  "verification_level": "parent/self-verified",
+  "claim": "Inspect Markdown provenance, verification dates, expiry and lifecycle transitions, and propose changes for human review.",
+  "source_acquisition": {
+    "anonymous_public_main_clone_and_fixed_sha_archive_match": true,
+    "source_files": 61
+  },
+  "environment": {
+    "os": "macOS",
+    "python": "3.11.15",
+    "pytest": "8.3.5",
+    "fresh_regular_and_editable_venvs": true,
+    "same_host": true
+  },
+  "tests": {
+    "installed_component_passed": 81,
+    "root_passed": 9,
+    "existing_passed": 50,
+    "writer_original_counterexamples_passed": 13,
+    "writer_additional_regressions_passed": 27,
+    "unique_passed": 90,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "installed_component_seconds": 0.27,
+    "root_seconds": 0.015,
+    "editable_component_repeated_passed": 81,
+    "editable_component_seconds": 0.33,
+    "editable_repeat_is_additional_unique_tests": false,
+    "regular_distribution_test_src_injection_omitted": true,
+    "original_counterexample_class_AST_unchanged": true
+  },
+  "installation": {
+    "regular_and_editable_succeeded": true,
+    "runtime_third_party_dependencies": 0,
+    "runtime_CLI_tested_before_pytest_install": true,
+    "installed_module_hashes_match_source": true,
+    "source_module_sha256": {
+      "__init__.py": "be84e222ca38d266dcaed56e616abb6ad97e7386d8e6550c61f17d4aafae5112",
+      "__main__.py": "0f7d54f3fbb1f79a85eb8110f11793db99da6f3c61ee979de5abe9a1b5f3fdb3",
+      "cli.py": "d86067af4f1c5122719c6fe153d561702e3ce76e3e95e9015de1aaf07b349da8",
+      "parser.py": "3fcc391c6978343e836299c3ff8bc4cbeab9a8a22f5f0c55ac9ff4764490a251",
+      "report.py": "097d7e11760a7e5dae6482a7d03e63a972adc0f380ab0528aef252e9d27cf175",
+      "transitions.py": "cbdc4b7d78945e32c229af77b07706f73fee58d2840cac4cde9c83e9e782f3f4",
+      "trust_writer.py": "1f3e8ea3ceac917fdc47945d921c5260a659ba074febeeeb37089f1e9ed009b4",
+      "validator.py": "e7ebc13a3322298f515f9f058da53879ed53c28d14ed4d3c7313a58c0d20ba42"
+    },
+    "license_bytes": 1073,
+    "license_record_hash_and_size_match": true,
+    "test_wheel_hashes_verified": 4
+  },
+  "CLI": {
+    "all_three_commands_console_module_help_json_human_checked": true,
+    "cases": [
+      {
+        "case": "evidence",
+        "exit": 0,
+        "report": {
+          "asset_type": "EVIDENCE",
+          "file": "evidence.md",
+          "freshness": "FRESH",
+          "issues": [],
+          "mutation_performed": false,
+          "proposal": null,
+          "schema_version": "klg.report.v0.1",
+          "state": "CONFIRMED",
+          "valid": true
+        }
+      },
+      {
+        "case": "stale",
+        "exit": 0,
+        "report": {
+          "asset_type": "EVIDENCE",
+          "file": "stale_evidence.md",
+          "freshness": "EXPIRED",
+          "issues": [],
+          "mutation_performed": false,
+          "proposal": {
+            "event_type": "STALE_PROPOSED",
+            "human_confirmation_required": true,
+            "reason": "Safe proposal for CONFIRMED -> STALE",
+            "target_state": "STALE"
+          },
+          "schema_version": "klg.report.v0.1",
+          "state": "CONFIRMED",
+          "valid": true
+        }
+      },
+      {
+        "case": "expiry-day",
+        "exit": 0,
+        "report": {
+          "asset_type": "EVIDENCE",
+          "file": "evidence.md",
+          "freshness": "FRESH",
+          "issues": [],
+          "mutation_performed": false,
+          "proposal": null,
+          "schema_version": "klg.report.v0.1",
+          "state": "CONFIRMED",
+          "valid": true
+        }
+      },
+      {
+        "case": "expiry-next-day",
+        "exit": 0,
+        "report": {
+          "asset_type": "EVIDENCE",
+          "file": "evidence.md",
+          "freshness": "EXPIRED",
+          "issues": [],
+          "mutation_performed": false,
+          "proposal": {
+            "event_type": "STALE_PROPOSED",
+            "human_confirmation_required": true,
+            "reason": "Safe proposal for CONFIRMED -> STALE",
+            "target_state": "STALE"
+          },
+          "schema_version": "klg.report.v0.1",
+          "state": "CONFIRMED",
+          "valid": true
+        }
+      },
+      {
+        "case": "invalid-promotion",
+        "exit": 1,
+        "report": {
+          "asset_type": "EVIDENCE",
+          "file": "invalid_promotion.md",
+          "freshness": "UNKNOWN",
+          "issues": [
+            {
+              "code": "direct_promotion",
+              "message": "Direct NEW -> CONFIRMED promotion is not allowed",
+              "severity": "error"
+            }
+          ],
+          "mutation_performed": false,
+          "proposal": null,
+          "schema_version": "klg.report.v0.1",
+          "state": "NEW",
+          "valid": false
+        }
+      },
+      {
+        "case": "missing-lineage",
+        "exit": 1,
+        "report": {
+          "asset_type": "EVIDENCE",
+          "file": "missing_lineage.md",
+          "freshness": "UNKNOWN",
+          "issues": [
+            {
+              "code": "lineage_missing",
+              "message": "lineage must contain at least one non-empty source after NEW",
+              "severity": "error"
+            }
+          ],
+          "mutation_performed": false,
+          "proposal": null,
+          "schema_version": "klg.report.v0.1",
+          "state": "CANDIDATE",
+          "valid": false
+        }
+      },
+      {
+        "case": "future-verification",
+        "exit": 1,
+        "report": {
+          "asset_type": "EVIDENCE",
+          "file": "evidence.md",
+          "freshness": "FRESH",
+          "issues": [
+            {
+              "code": "last_verified_future",
+              "message": "last_verified cannot be later than the validation date",
+              "severity": "error"
+            }
+          ],
+          "mutation_performed": false,
+          "proposal": null,
+          "schema_version": "klg.report.v0.1",
+          "state": "CONFIRMED",
+          "valid": false
+        }
+      }
+    ],
+    "invalid_as_of_exit": 2,
+    "examples_before_sha256": {
+      "concept.md": "132f99b739e827e75aab5f0462ba7d909678b1d316a6b68d83f747100ebe0372",
+      "missing_lineage.md": "124293908479c5079b5cf21dc76199b2809e91d93510e511da6b8247bb3be140",
+      "invalid_promotion.md": "6bf34e1c06e604e8f4acb87c6bb058ed4559bf1862acbcf9d8464fc2905e208a",
+      "evidence.md": "4386297c6e2f6d1bcdb9759783956ad7393a812e8661f357f1ba112da5b81972",
+      "stale_evidence.md": "24351274279414d96b1c51c00eb2416ad6ee51e92455f188bb9529f157b9bceb"
+    },
+    "examples_after_sha256": {
+      "concept.md": "132f99b739e827e75aab5f0462ba7d909678b1d316a6b68d83f747100ebe0372",
+      "missing_lineage.md": "124293908479c5079b5cf21dc76199b2809e91d93510e511da6b8247bb3be140",
+      "invalid_promotion.md": "6bf34e1c06e604e8f4acb87c6bb058ed4559bf1862acbcf9d8464fc2905e208a",
+      "evidence.md": "4386297c6e2f6d1bcdb9759783956ad7393a812e8661f357f1ba112da5b81972",
+      "stale_evidence.md": "24351274279414d96b1c51c00eb2416ad6ee51e92455f188bb9529f157b9bceb"
+    },
+    "examples_unchanged": true
+  },
+  "presentation": {
+    "README_files_checked": 2,
+    "README_references": 18,
+    "unique_public_targets_anonymous_HTTP_200": 12,
+    "GIF_natural_dimensions": [
+      384,
+      384
+    ],
+    "GIF_README_dimensions": [
+      192,
+      192
+    ],
+    "GIF_frames": 120,
+    "GIF_frame_delay_ms": 50,
+    "GIF_duration_seconds": 6,
+    "GIF_complete_trailer": true,
+    "alt_present": true,
+    "static_PNG_and_Quickstart_followed": true,
+    "GitHub_reduced_motion_picture_source_retained": true,
+    "OS_motion_preference_switch_tested": false,
+    "existing_asset_rights_hashes_match": true,
+    "new_legal_clearance": false
+  },
+  "boundary_scan": {
+    "enumerated_text_matches": 0,
+    "exhaustive_secret_absence_certified": false
+  },
+  "existing_exact_source_CI": {
+    "run_id": 38719897632,
+    "head_sha": "411d6b3642f359dfbaa4529337e47a842702e4d3",
+    "event": "push",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success",
+    "component_passed": 81,
+    "root_passed": 9,
+    "url": "https://github.com/UMEBOSHIISAN/knowledge-lifecycle-kit/actions/runs/38719897632",
+    "audit_reused_existing_integration_receipt": true,
+    "audit_triggered_new_CI_or_reacquired_logs": false,
+    "attests_later_documentation_commits": false
+  },
+  "private_evidence": {
+    "audit_receipt_sha256": "e12f58c1f01a33bcfd312f0533686f6a6216458794ea1ea376b0de4f54bae15a",
+    "referenced_artifact_hashes_parent_checked": 84,
+    "raw_receipt_logs_JUnit_storage": "private",
+    "public_can_retrieve_raw_artifacts": false,
+    "public_summary_is_independent_verification": false
+  },
+  "limits": [
+    "Writer verification covers one writer and synchronous Exception handling only.",
+    "No complete power-loss, process-death, BaseException, multiwriter or hostile concurrent path-race atomicity.",
+    "Approval token is not human authentication or execution authority.",
+    "Actor/reason length, current-date rollback/redact evaluation and empty-directory limitations remain.",
+    "No different-machine, Windows, full Python matrix, fresh dark/mobile or OS motion-preference acceptance.",
+    "No exhaustive history/binary/secret absence or independent legal/trademark clearance.",
+    "This old-source audit and CI cannot attest a new documentation SHA; its delivery and exact-head CI receipt must be measured separately outside that source commit."
+  ]
+}
