@@ -11,8 +11,10 @@ Invariant (Gen2 Consolidation):
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 import datetime
+from functools import wraps
 import hashlib
 import json
 import os
@@ -23,7 +25,7 @@ from typing import Any, Mapping
 
 from .parser import FrontmatterError, parse_markdown_text
 from .transitions import propose_transition
-from .validator import validate_metadata
+from .validator import ValidationResult, validate_metadata
 
 _ALLOWED_PREFIXES = ("memory/", "decisions/", "synthesis/", "canon/", "history/")
 _MAX_BYTES = 102400
@@ -65,12 +67,25 @@ def compute_sha256(content: str | bytes) -> str:
     return f"sha256:{hashlib.sha256(raw).hexdigest()}"
 
 
+def _serialized_write(method):
+    @wraps(method)
+    def run(writer, *args, **kwargs):
+        with writer._publication_lock():
+            return method(writer, *args, **kwargs)
+    return run
+
+
+def _expired_evidence(result: ValidationResult) -> bool:
+    return (result.asset_type == "EVIDENCE" and result.state == "CONFIRMED"
+            and result.freshness == "EXPIRED")
+
+
 class KnowledgeTrustWriter:
     """Local single-writer API with compensation for synchronous I/O failures.
 
-    This does not provide multiwriter, hostile path-race or process/power-loss
-    atomicity across files. A failed compensation is reported, never hidden by
-    a successful result; callers must resolve that store before further use.
+    Cooperating writers on a local POSIX filesystem reject lock contention.
+    The lock does not protect against external writers, hostile path races
+    or process/power loss. A failed compensation is reported to the caller.
     """
 
     def __init__(self, base_dir: Path | str) -> None:
@@ -81,7 +96,26 @@ class KnowledgeTrustWriter:
         self.redact_dir = self.base_dir / "redact"
         self.audit_path = self.audit_dir / "audit.jsonl"
         self.redact_path = self.redact_dir / "redact.jsonl"
+        self.base_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         self._init_dirs()
+
+    @contextmanager
+    def _publication_lock(self):
+        try:
+            import fcntl
+            fd = os.open(self.base_dir, os.O_RDONLY | os.O_DIRECTORY)
+        except (ImportError, OSError) as exc:
+            raise StorageDurabilityError("Cannot open local Writer publication lock") from exc
+        try:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise StorageDurabilityError("Writer publication lock is busy") from exc
+            except OSError as exc:
+                raise StorageDurabilityError("Cannot acquire Writer publication lock") from exc
+            yield
+        finally:
+            os.close(fd)
 
     def _confined(self, path: Path, root: Path) -> Path:
         """Reject existing symlinks and use component-wise containment."""
@@ -107,6 +141,7 @@ class KnowledgeTrustWriter:
             if log.exists() and not log.is_file():
                 raise StorageBoundaryError(f"Storage log is not a regular file: {log}")
 
+    @_serialized_write
     def _init_dirs(self) -> None:
         self._check_storage()
         for directory in (self.store_dir, self.versions_dir, self.audit_dir, self.redact_dir):
@@ -148,7 +183,7 @@ class KnowledgeTrustWriter:
     def _validate_lifecycle(
         self, content: str, explicit_metadata: Mapping[str, Any] | None = None,
         as_of: datetime.date | None = None,
-    ) -> tuple[dict[str, Any], str]:
+    ) -> ValidationResult:
         try:
             metadata, _ = parse_markdown_text(content)
         except FrontmatterError as exc:
@@ -163,7 +198,7 @@ class KnowledgeTrustWriter:
         if not result.valid or result.state not in ("CONFIRMED", "STALE", "RETIRED"):
             errors = "; ".join(issue.message for issue in result.issues if issue.severity == "error")
             raise PromotionGateError(f"Ineligible canonical lifecycle state: {errors or result.state}")
-        return metadata, str(result.state)
+        return result
 
     def _audit_records(self) -> list[dict[str, Any]]:
         self._confined(self.audit_path, self.audit_dir)
@@ -174,34 +209,40 @@ class KnowledgeTrustWriter:
             records = [json.loads(line) for line in raw.decode("utf-8").splitlines() if line.strip()]
             for record in records:
                 if (not isinstance(record, dict) or not isinstance(record.get("target"), str)
-                        or record.get("action") not in ("write", "rollback", "redact")
+                        or record.get("action") not in ("write", "rollback", "redact", "revalidate")
                         or not isinstance(record.get("after_hash"), str)
                         or re.fullmatch(r"sha256:[0-9a-f]{64}", record["after_hash"]) is None):
                     raise ValueError("invalid audit record")
+                if record["action"] == "revalidate":
+                    decision_ref = record.get("decision_ref")
+                    if not isinstance(decision_ref, str) or not decision_ref or decision_ref != decision_ref.strip():
+                        raise ValueError("invalid revalidation decision reference")
             return records
         except (OSError, ValueError, UnicodeError) as exc:
             raise StorageDurabilityError(f"Cannot use incomplete audit evidence: {exc}") from exc
 
-    def _guard_existing(self, target: str, store: Path, state: str,
-                        records: list[dict[str, Any]], as_of=None) -> bytes | None:
+    def _guard_existing(
+        self, target: str, store: Path, state: str | None,
+        records: list[dict[str, Any]], as_of: datetime.date | None = None,
+    ) -> tuple[bytes | None, ValidationResult | None]:
         history = self._version_dir(target)
         if not store.exists():
             if (history.exists() and any(history.iterdir())) or any(r["target"] == target for r in records):
                 raise StorageDurabilityError("Canonical file missing while target history remains")
-            return None
+            return None, None
         if not store.is_file():
             raise StorageBoundaryError("Canonical target must be a regular file")
         raw = store.read_bytes()
         self._verify_no_change(target, compute_sha256(raw), records)
         try:
-            _, previous_state = self._validate_lifecycle(raw.decode("utf-8"), as_of=as_of)
+            previous = self._validate_lifecycle(raw.decode("utf-8"), as_of=as_of)
         except UnicodeError as exc:
             raise PromotionGateError("Existing canonical Markdown is not UTF-8") from exc
-        if previous_state != state:
-            decision = propose_transition(previous_state, state)
+        if state is not None and previous.state != state:
+            decision = propose_transition(previous.state, state)
             if not decision.allowed:
                 raise PromotionGateError(decision.reason)
-        return raw
+        return raw, previous
 
     def _verify_no_change(self, target: str, digest: str, records: list[dict[str, Any]]) -> None:
         matching = [row for row in records if row["target"] == target]
@@ -310,21 +351,43 @@ class KnowledgeTrustWriter:
             suffix = f"; recovery failed: {'; '.join(recovery_errors)}" if recovery_errors else "; prior bytes restored"
             raise StorageDurabilityError(f"Storage operation failed: {failure}{suffix}") from failure
 
-    def commit(
-        self, target_path: str, content: str, actor: str, reason: str,
-        metadata: Mapping[str, Any] | None = None, approval_token: str | None = None,
-        as_of: datetime.date | None = None,
-    ) -> KnowledgeTrustResult:
+    @staticmethod
+    def _content_bytes(content: str) -> bytes:
         if not isinstance(content, str):
             raise KnowledgeTrustError("content must be a string")
         raw = content.encode("utf-8")
         if len(raw) > _MAX_BYTES:
             raise StorageBoundaryError("content exceeds maximum bytes")
-        _, state = self._validate_lifecycle(content, metadata, as_of=as_of)
+        return raw
+
+    def _write_generation(
+        self, store: Path, raw: bytes, entry: dict[str, Any], status: str,
+    ) -> KnowledgeTrustResult:
+        target = entry["target"]
+        version, timestamp = self._new_version(target, entry["actor"], entry["after_hash"])
+        entry.update(ts=timestamp, version=version.name)
+        self._publish([(store, raw), (version, raw)], [(self.audit_path, entry)])
+        return KnowledgeTrustResult(
+            True, status, target, entry["before_hash"], entry["after_hash"],
+            str(version), entry, True, {"state": entry["state"]},
+        )
+
+    @_serialized_write
+    def commit(
+        self, target_path: str, content: str, actor: str, reason: str,
+        metadata: Mapping[str, Any] | None = None, approval_token: str | None = None,
+        as_of: datetime.date | None = None,
+    ) -> KnowledgeTrustResult:
+        today = datetime.date.today()
+        validation_date = as_of or today
+        raw = self._content_bytes(content)
+        state = self._validate_lifecycle(content, metadata, as_of=validation_date).state
         target_path = self._normalize_target(target_path)
         store = self._validate_target_path(target_path)
         records = self._audit_records()
-        previous = self._guard_existing(target_path, store, state, records, as_of)
+        previous, previous_result = self._guard_existing(
+            target_path, store, state, records, validation_date,
+        )
         before_hash = compute_sha256(previous) if previous is not None else "none"
         after_hash = compute_sha256(raw)
         if previous is not None:
@@ -336,25 +399,87 @@ class KnowledgeTrustWriter:
             return KnowledgeTrustResult(True, "NO_CHANGE", target_path, before_hash,
                                         after_hash, None, None, False,
                                         {"message": "Content identical to existing canonical store; no-op."})
-        version, timestamp = self._new_version(target_path, actor, after_hash)
-        entry = {"ts": timestamp, "actor": actor, "action": "write", "target": target_path,
+        if (previous_result is not None and state == "CONFIRMED"
+                and _expired_evidence(validate_metadata(previous_result.metadata, as_of=today))):
+            raise PromotionGateError("Expired evidence requires revalidation before a confirmed update")
+        entry = {"actor": actor, "action": "write", "target": target_path,
                  "before_hash": before_hash, "after_hash": after_hash, "reason": reason,
-                 "state": state, "approval_token": approval_token, "version": version.name}
-        self._publish([(store, raw), (version, raw)], [(self.audit_path, entry)])
-        return KnowledgeTrustResult(True, "COMMITTED", target_path, before_hash,
-                                    after_hash, str(version), entry, True, {"state": state})
+                 "state": state, "approval_token": approval_token}
+        return self._write_generation(store, raw, entry, "COMMITTED")
 
+    @_serialized_write
+    def revalidate(
+        self, target_path: str, content: str, actor: str, reason: str, *,
+        evidence: bytes, review: Mapping[str, str | int],
+    ) -> KnowledgeTrustResult:
+        """Save a new Evidence generation after an externally authorized review."""
+        today = datetime.date.today()
+        raw = self._content_bytes(content)
+        candidate = self._validate_lifecycle(content, as_of=today)
+        if (candidate.asset_type != "EVIDENCE" or candidate.state != "CONFIRMED"
+                or candidate.freshness != "FRESH"
+                or candidate.metadata.get("last_verified") != today.isoformat()):
+            raise PromotionGateError("Revalidation needs fresh confirmed evidence verified today")
+        if not isinstance(evidence, bytes) or not evidence or not isinstance(review, Mapping):
+            raise PromotionGateError("Revalidation requires evidence bytes and a review record")
+        approved = dict(review)
+        review_fields = {"evidence_ref", "reviewer", "decision_ref"}
+        for field_name in review_fields:
+            value = approved.get(field_name)
+            if not isinstance(value, str) or not value or value != value.strip():
+                raise PromotionGateError(f"Invalid review field: {field_name}")
+        if approved["evidence_ref"] not in candidate.metadata["lineage"]:
+            raise PromotionGateError("Review evidence reference is missing from candidate lineage")
+
+        target_path = self._normalize_target(target_path)
+        store = self._validate_target_path(target_path)
+        records = self._audit_records()
+        previous, previous_result = self._guard_existing(target_path, store, None, records, today)
+        if (previous is None or previous_result is None or previous_result.asset_type != "EVIDENCE"
+                or (previous_result.state != "STALE" and not _expired_evidence(previous_result))):
+            raise PromotionGateError("Revalidation requires current stale or expired evidence")
+
+        current_index = max(index for index, record in enumerate(records)
+                            if record["target"] == target_path)
+        expected = {
+            "target": target_path,
+            "current_audit_index": current_index,
+            "before_hash": compute_sha256(previous),
+            "after_hash": compute_sha256(raw),
+            "evidence_sha256": compute_sha256(evidence),
+        }
+        if (approved.keys() != expected.keys() | review_fields
+                or type(approved["current_audit_index"]) is not int
+                or any(approved[key] != value for key, value in expected.items())):
+            raise PromotionGateError("Review does not match the current revision, candidate or evidence")
+        if any(record["action"] == "revalidate" and record["decision_ref"] == approved["decision_ref"]
+               for record in records):
+            raise PromotionGateError("Review decision reference was already used")
+
+        entry = {**approved, "actor": actor, "reason": reason, "state": candidate.state,
+                 "action": "revalidate", "operation_date": today.isoformat()}
+        return self._write_generation(store, raw, entry, "REVALIDATED")
+
+    @_serialized_write
     def rollback(self, target_path: str, version_filename: str,
                  actor: str, reason: str) -> KnowledgeTrustResult:
         target_path = self._normalize_target(target_path)
         store = self._validate_target_path(target_path)
         version = self._version_file(target_path, version_filename)
         restored = version.read_bytes()
+        today = datetime.date.today()
         try:
-            _, state = self._validate_lifecycle(restored.decode("utf-8"))
+            restored_result = self._validate_lifecycle(restored.decode("utf-8"), as_of=today)
         except UnicodeError as exc:
             raise PromotionGateError("Version is not UTF-8 Markdown") from exc
-        previous = self._guard_existing(target_path, store, state, self._audit_records())
+        if _expired_evidence(restored_result):
+            raise PromotionGateError("Cannot restore expired confirmed evidence")
+        state = restored_result.state
+        previous, previous_result = self._guard_existing(
+            target_path, store, state, self._audit_records(), today,
+        )
+        if previous_result is not None and state == "CONFIRMED" and _expired_evidence(previous_result):
+            raise PromotionGateError("Expired evidence requires revalidation before a confirmed restore")
         before_hash = compute_sha256(previous) if previous is not None else "none"
         after_hash = compute_sha256(restored)
         entry = {"ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -366,6 +491,7 @@ class KnowledgeTrustWriter:
                                     after_hash, str(version), entry, True,
                                     {"restored_version": version_filename})
 
+    @_serialized_write
     def redact(self, target_path: str, version_filename: str,
                actor: str, reason: str) -> KnowledgeTrustResult:
         target_path = self._normalize_target(target_path)
@@ -374,8 +500,8 @@ class KnowledgeTrustWriter:
         tombstone = ("---\nstate: RETIRED\nasset_type: PROCEDURE\ntitle: Redacted\n"
                      "created: 2026-08-23\nlineage:\n  - system\n---\n# REDACTED\n"
                      f"This knowledge item was redacted by {actor}: {reason}\n")
-        _, state = self._validate_lifecycle(tombstone)
-        previous = self._guard_existing(target_path, store, state, self._audit_records())
+        state = self._validate_lifecycle(tombstone).state
+        previous, _ = self._guard_existing(target_path, store, state, self._audit_records())
         before_hash = compute_sha256(previous) if previous is not None else "none"
         raw = tombstone.encode("utf-8")
         after_hash = compute_sha256(raw)

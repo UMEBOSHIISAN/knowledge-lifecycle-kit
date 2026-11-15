@@ -13,7 +13,38 @@ The `klg inspect`, `klg validate`, and `klg propose-transition` commands inspect
 
 The CLI does not modify source files, append lifecycle events, promote assets automatically, or simulate human approval.
 
-The package also exports an optional `KnowledgeTrustWriter` Python API. Constructing it initializes local store, version, audit, and redaction paths; commit, rollback, and redact operations can write local files. This API is not invoked by the three CLI commands above. Callers must authorize their target and operation separately; a validation result or an approval-token string is not human authentication or execution permission. Neither interface accesses a network, calls an external API, uses an LLM, or requires an operational host.
+The package also exports an optional `KnowledgeTrustWriter` Python API. Constructing it initializes local store, version, audit, and redaction paths. Commit, revalidate, rollback, and redact operations can write local files. This API is separate from the CLI. Callers must authorize their target and operation separately. Neither interface needs a network, external API, LLM, or operational host.
+
+### Revalidate an Evidence note
+
+Call `writer.revalidate(target_path, content, actor, reason, evidence=source_bytes, review=review)`
+after the caller has authorized a human decision covering the exact source and
+Markdown bytes. The current note must be `STALE` or expired `CONFIRMED` Evidence.
+The candidate must be `CONFIRMED` Evidence verified on the local operation date,
+with an expiry date that includes that day.
+
+The review mapping has exactly these fields.
+
+| Field | Value |
+| --- | --- |
+| `target` | Canonical target path relative to `store/`, with forward slashes |
+| `current_audit_index` | Zero-based position of the target's latest record in the nonblank audit JSONL records |
+| `before_hash`, `after_hash` | SHA-256 of the current file bytes and the candidate Markdown encoded as UTF-8, in `sha256:<lowercase hex>` form |
+| `evidence_ref` | Source reference appearing in the candidate's `lineage` |
+| `evidence_sha256` | SHA-256 of the exact `source_bytes` passed to the writer, in the same digest form |
+| `reviewer`, `decision_ref` | Reviewer identifier and decision reference. Use a distinct decision reference for each review within the store. |
+
+The writer compares the record to the current revision, candidate, and evidence
+under a local POSIX publication lock. A successful call preserves earlier
+generations, saves the new one, and adds a `revalidate` audit record. The caller
+is responsible for authenticating the reviewer and authorizing the operation.
+The audit stores the evidence digest and reference. The caller retains the source bytes.
+
+Ordinary commit and rollback reject a confirmed update to expired Evidence.
+Rollback also rejects a version containing expired `CONFIRMED` Evidence.
+Cooperating Writer calls fail immediately on lock contention. Synchronous
+publication errors use the existing compensation path. Power loss and edits
+from outside the Writer are outside that guarantee.
 
 This package is an adapter profile, not a replacement for any larger lifecycle implementation. The public profile is intentionally limited to:
 
