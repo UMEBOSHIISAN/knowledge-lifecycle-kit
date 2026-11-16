@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -27,6 +28,9 @@ class ValidationIssue:
     severity: str = "error"
 
 
+_DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}")
+
+
 @dataclass
 class ValidationResult:
     path: Path | None
@@ -37,6 +41,7 @@ class ValidationResult:
     freshness: str = "UNKNOWN"
     issues: list[ValidationIssue] = field(default_factory=list)
     parsed: ParsedMarkdown | None = None
+    content_digest: str | None = None
 
 
 def _date(value: Any, field_name: str, issues: list[ValidationIssue]) -> date | None:
@@ -185,7 +190,12 @@ def validate_metadata(
     )
 
 
-def validate_file(path: Path, *, as_of: date | None = None) -> ValidationResult:
+def validate_file(
+    path: Path,
+    *,
+    as_of: date | None = None,
+    expected_digest: str | None = None,
+) -> ValidationResult:
     path = Path(path)
     try:
         parsed = parse_markdown(path)
@@ -198,4 +208,23 @@ def validate_file(path: Path, *, as_of: date | None = None) -> ValidationResult:
         )
     result = validate_metadata(parsed.metadata, as_of=as_of, path=path)
     result.parsed = parsed
+    result.content_digest = f"sha256:{parsed.sha256}"
+    if expected_digest is not None:
+        if _DIGEST_RE.fullmatch(expected_digest) is None:
+            result.issues.append(
+                ValidationIssue(
+                    "content_digest_invalid",
+                    "expected digest must be in sha256:<lowercase hex> form",
+                )
+            )
+        elif expected_digest != result.content_digest:
+            result.issues.append(
+                ValidationIssue(
+                    "content_digest_mismatch",
+                    "file content no longer matches the expected digest",
+                )
+            )
+        result.valid = not any(
+            issue.severity == "error" for issue in result.issues
+        )
     return result
