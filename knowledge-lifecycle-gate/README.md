@@ -59,9 +59,14 @@ Richer or unsupported lifecycle values fail closed. A proposal is represented by
 klg inspect FILE
 klg validate FILE
 klg propose-transition FILE
+klg scan DIRECTORY
 ```
 
 Add `--json` for machine-readable output and `--as-of YYYY-MM-DD` for deterministic freshness checks.
+
+Every report carries a `content_digest` in `sha256:<lowercase hex>` form, binding the report to the exact file bytes that were validated. Pass `--expect-digest sha256:<hex>` to a file command to fail closed when the content no longer matches a previously recorded digest.
+
+`klg scan` validates every Markdown note under a directory (skipping hidden directories), prints one report per file with paths relative to the scanned root, and ends with a summary. It exits non-zero when any file is invalid or no Markdown files are found. Like the other commands, it never writes to the scanned files.
 
 ## Parser boundary
 

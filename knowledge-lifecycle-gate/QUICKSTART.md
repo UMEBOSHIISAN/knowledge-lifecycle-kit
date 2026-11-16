@@ -10,6 +10,7 @@ source .venv/bin/activate
 python -m pip install .
 klg validate examples/evidence.md
 klg propose-transition examples/stale_evidence.md
+klg scan examples
 ```
 
 On Windows, create the environment with `py -3 -m venv .venv` and activate it

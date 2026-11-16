@@ -17,6 +17,7 @@ def build_report(
     return {
         "schema_version": "klg.report.v0.1",
         "file": result.path.name if result.path else "<input>",
+        "content_digest": result.content_digest,
         "valid": result.valid,
         "asset_type": result.asset_type,
         "state": result.state,
@@ -45,6 +46,7 @@ def render_human(report: dict[str, Any]) -> str:
     human_required = "YES" if proposal and proposal["human_confirmation_required"] else "NO"
     lines = [
         f"Asset type: {report.get('asset_type') or 'UNKNOWN'}",
+        f"Content digest: {report.get('content_digest') or 'UNKNOWN'}",
         f"Current state: {report.get('state') or 'UNKNOWN'}",
         f"Freshness: {report.get('freshness', 'UNKNOWN')}",
         f"Suggested transition: {suggested}",
