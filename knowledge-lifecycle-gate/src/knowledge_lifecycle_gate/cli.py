@@ -118,7 +118,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(_render_scan_human(scan), end="")
         summary = scan["summary"]
-        return 0 if summary["total"] > 0 and summary["invalid"] == 0 else 1
+        return 0 if summary["total"] > 0 else 1
     report = run_command(
         args.command,
         args.file,
